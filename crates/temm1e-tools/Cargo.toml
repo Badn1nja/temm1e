@@ -12,6 +12,7 @@ desktop-control = ["dep:temm1e-gaze"]
 
 [dependencies]
 temm1e-core.workspace = true
+temm1e-agent.workspace = true
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true

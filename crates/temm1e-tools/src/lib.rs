@@ -40,6 +40,7 @@ pub use key_manage::KeyManageTool;
 pub use lambda_recall::LambdaRecallTool;
 pub use memory_manage::MemoryManageTool;
 pub use mode_switch::{ModeSwitchTool, SharedMode};
+pub use modelrouter::{ModelRouterTool, SharedModelRouterConfig};
 pub use send_file::SendFileTool;
 pub use send_message::SendMessageTool;
 pub use shell::ShellTool;
