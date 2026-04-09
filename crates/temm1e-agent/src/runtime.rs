@@ -54,6 +54,11 @@ fn first_nonempty_line_preview(text: &str, max_chars: usize) -> String {
 }
 
 use crate::model_router::{ModelRouter, ModelRouterConfig};
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+/// Shared model router configuration that can be updated at runtime.
+pub type SharedModelRouterConfig = Arc<RwLock<ModelRouterConfig>>;
 use crate::output_compression::compress_tool_output;
 use temm1e_core::types::error::classify_tool_failure;
 use temm1e_core::types::optimization::VerifyMode;
@@ -146,6 +151,8 @@ pub struct AgentRuntime {
     social_evaluating: Arc<AtomicBool>,
     /// Tiered model router for complexity-based model selection.
     model_router: ModelRouter,
+    /// Shared model router configuration (for runtime updates via /modelrouter tool).
+    shared_router_config: SharedModelRouterConfig,
 }
 
 impl AgentRuntime {
@@ -186,6 +193,7 @@ impl AgentRuntime {
             social_config: None,
             social_turn_count: Arc::new(AtomicU32::new(0)),
             social_evaluating: Arc::new(AtomicBool::new(false)),
+            shared_router_config: Arc::new(RwLock::new(ModelRouterConfig::default())),
             model_router: ModelRouter::new(ModelRouterConfig::default()),
         }
     }
@@ -261,6 +269,7 @@ impl AgentRuntime {
             social_config: None,
             social_turn_count: Arc::new(AtomicU32::new(0)),
             social_evaluating: Arc::new(AtomicBool::new(false)),
+            shared_router_config: Arc::new(RwLock::new(ModelRouterConfig::default())),
             model_router: ModelRouter::new(ModelRouterConfig::default()),
         }
     }
@@ -369,8 +378,14 @@ impl AgentRuntime {
 
     /// Set the model router configuration for tiered model selection.
     pub fn with_model_router(mut self, config: ModelRouterConfig) -> Self {
+        self.shared_router_config = Arc::new(RwLock::new(config.clone()));
         self.model_router = ModelRouter::new(config);
         self
+    }
+
+    /// Get the shared model router configuration (for the /modelrouter tool).
+    pub fn shared_router_config(&self) -> SharedModelRouterConfig {
+        self.shared_router_config.clone()
     }
 
     /// Check whether parallel phase execution is enabled.
@@ -1022,7 +1037,9 @@ impl AgentRuntime {
 
             // Select model based on task complexity
             let tool_names: Vec<&str> = effective_tools.iter().map(|t| t.name()).collect();
-            let selected_model = self.model_router.route(
+            let current_config = self.shared_router_config.read().await.clone();
+            let router = ModelRouter::new(current_config);
+            let selected_model = router.route(
                 &session.history,
                 &tool_names,
                 &user_text,

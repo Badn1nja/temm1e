@@ -48,7 +48,7 @@ pub use prompt_optimizer::{
 };
 pub use prompt_patches::{PatchStatus, PatchType, PromptPatch, PromptPatchManager};
 pub use recovery::{RecoveryAction, RecoveryManager, RecoveryPlan};
-pub use runtime::{AgentRuntime, SharedMode};
+pub use runtime::{AgentRuntime, SharedMode, SharedModelRouterConfig};
 pub use self_correction::FailureTracker;
 pub use startup::{LazyResource, StartupMetrics};
 pub use streaming::{StreamBuffer, StreamingConfig, StreamingNotifier};
