@@ -144,6 +144,8 @@ pub struct AgentRuntime {
     social_turn_count: Arc<AtomicU32>,
     /// Social intelligence: concurrent evaluation guard to prevent overlapping evals.
     social_evaluating: Arc<AtomicBool>,
+    /// Tiered model router for complexity-based model selection.
+    model_router: ModelRouter,
 }
 
 impl AgentRuntime {
@@ -184,6 +186,7 @@ impl AgentRuntime {
             social_config: None,
             social_turn_count: Arc::new(AtomicU32::new(0)),
             social_evaluating: Arc::new(AtomicBool::new(false)),
+            model_router: ModelRouter::new(ModelRouterConfig::default()),
         }
     }
 
@@ -258,6 +261,7 @@ impl AgentRuntime {
             social_config: None,
             social_turn_count: Arc::new(AtomicU32::new(0)),
             social_evaluating: Arc::new(AtomicBool::new(false)),
+            model_router: ModelRouter::new(ModelRouterConfig::default()),
         }
     }
 
@@ -360,6 +364,12 @@ impl AgentRuntime {
     ) -> Self {
         self.social_storage = storage;
         self.social_config = config;
+        self
+    }
+
+    /// Set the model router configuration for tiered model selection.
+    pub fn with_model_router(mut self, config: ModelRouterConfig) -> Self {
+        self.model_router = ModelRouter::new(config);
         self
     }
 
@@ -1010,11 +1020,20 @@ impl AgentRuntime {
                     .collect()
             };
 
+            // Select model based on task complexity
+            let tool_names: Vec<&str> = effective_tools.iter().map(|t| t.name()).collect();
+            let selected_model = self.model_router.route(
+                &session.history,
+                &tool_names,
+                &user_text,
+                false, // not verification
+            );
+
             let mut request = build_context(
                 session,
                 self.memory.as_ref(),
                 &effective_tools,
-                &self.model,
+                selected_model,
                 self.system_prompt.as_deref(),
                 self.max_turns,
                 self.max_context_tokens,
